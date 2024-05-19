@@ -4,13 +4,9 @@
 .type main, %function
 main:
   nop
-  ldr r0, =0
-  ldr r1, =1
-  ldr r2, =2
-  ldr r3, =3
-  push {r0 - r3}
+  ldr r0, =4
+  ldr r1, =image
   bl turn_on_col_led
-  pop {r0 - r3}
 
 
   b main
@@ -22,13 +18,14 @@ main:
 @ the column specified as parameter
 @ --parameters--
 @ r0: index of column to display
-@ r1: address of image to display ???????
+@ r1: address of image to display
 turn_on_col_led:
   push {lr}
   push {r4 - r5} 
-  push {r0} @ r1 ??
+  push {r1}
+  push {r0, r1}
   bl init_leds
-  pop {r0} @ r1 ??
+  pop {r0, r1}
   ldr r1, =OFS_GPIO_DIR
   ldr r2, =1
   push {r0}
@@ -41,7 +38,10 @@ turn_on_col_led:
   pop {r0, r1}
 
   lsl r0, 2
-  ldr r2, =image @ r1 ??
+  pop {r1}
+  mov r2, 0
+  add r2, r1
+  @ ldr r2, r1
   add r2, r2, r0
   ldr r2, [r2]
   ldr r4, =0 @ loop counter
