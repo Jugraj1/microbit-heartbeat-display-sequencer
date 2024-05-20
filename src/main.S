@@ -54,11 +54,6 @@ turn_on_col_led:
   push {r0, r1}
   bl init_leds
   pop {r0, r1}
-  ldr r1, =OFS_GPIO_DIR
-  ldr r2, =1
-  push {r0}
-  bl write_column_pin 
-  pop {r0}
   ldr r1, =OFS_GPIO_OUT
   ldr r2, =0
   push {r0, r1}
@@ -81,12 +76,9 @@ turn_on_col_led:
     push {r2}
     lsl r2, r5
     lsr r2, #31
-    ldr r1, =OFS_GPIO_DIR
+    @ ldr r1, =OFS_GPIO_DIR
     mov r0, 0
     add r0, r4
-    push {r0, r2}
-    bl write_row_pin
-    pop {r0, r2}
     ldr r1, =OFS_GPIO_OUT
     bl write_row_pin
     pop {r2}
