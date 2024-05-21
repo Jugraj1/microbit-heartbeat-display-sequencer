@@ -165,8 +165,14 @@ turn_col_with_brightness:
 @ r2: memory address for the second image
 @ r3: address storing brightness (brightness is represented in a way of delay)
 loop_switch_images:
-
   push {lr}
+  push {r4}
+  ldr r4, =exit_loop_condition
+  ldr r4, [r4]
+  cmp r4, 0
+  bne end_loop_switch_images
+  push {r0 - r3} 
+
   push {r0 - r3} 
   mov r2, 0
   add r2, r3
@@ -179,9 +185,14 @@ loop_switch_images:
   mov r2, 0
   add r2, r3
   bl show_image_with_brightness
+  pop {r0 - r3}
+  pop {r4}
+  b loop_switch_images
 
-  pop {lr}
-  bx lr
+  end_loop_switch_images:
+    pop {r4}
+    pop {lr}
+    bx lr
 .size loop_switch_images, .-loop_switch_images
 
 .data
@@ -262,4 +273,7 @@ brightness_default:
 brightness_high:
   .word 10000
   .word 100
+
+exit_loop_condition:
+  .word 0
 
