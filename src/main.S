@@ -14,17 +14,12 @@
 .type main, %function
 main:
 
-  nop
-  @ ldr r0, =200
-  @ ldr r2, =brightness_low
-  @ ldr r1, =full_heart
-  @ bl show_image_with_brightness
+  ldr r0, =500
+  ldr r1, =start
+  ldr r2, =start
+  ldr r3, =brightness_end_stage_high
+  bl fade_images
 
-  @ ldr r0, =200
-  @ ldr r2, =brightness_default
-  @ ldr r1, =partial_heart
-  @ bl show_image_with_brightness
-  
   bl init_prop_display_image
   bl enable_buttons
   ldr r0, =display_time
@@ -32,14 +27,58 @@ main:
   ldr r2, =full_heart
   ldr r3, =current_brightness
   bl loop_switch_images
-  @ bl disable_buttons
 
-  ldr r0, = 26
-  ldr r1, =heart_beat_fast
+  ldr r0, =500
+  ldr r1, =full_heart
+  ldr r2, =full_heart
+  ldr r3, =brightness_end_stage_high
+  bl fade_images
+
+  ldr r0, =500
+  ldr r1, =small_heart
+  ldr r2, =full_heart
+  ldr r3, =brightness_end_stage_high
+  bl fade_images
+
+  ldr r0, =500
+  ldr r1, =partial_heart
+  ldr r2, =full_heart
+  ldr r3, =brightness_end_stage_high
+  bl fade_images
+
+  ldr r0, =500
+  ldr r1, =partial_heart
+  ldr r2, =partial_heart
+  ldr r3, =brightness_end_stage_high
+  bl fade_images
+
+  ldr r0, =500
+  ldr r1, =empty
+  ldr r2, =empty
+  ldr r3, =brightness_end_stage_high
+  bl fade_images
+
+  ldr r0, =boolean_show_higher_lower
+  ldr r0, [r0]
+  ldr r1, =1
+  cmp r0, r1
+  beq higher_show
+  ldr r0, =31
+  ldr r1, =heart_beat_slow
   bl slide_image_show
+  b main
+  higher_show: 
+    ldr r0, =16
+    ldr r1, =heart_beat_fast
+    bl slide_image_show
+    b main
+
+
 
   
-
+  @ ldr r0, =100
+  @ bl delay
+  
   b main
 .size main, .-main
 
@@ -92,57 +131,7 @@ turn_on_col_led:
     pop {r4 - r5}
     pop {lr}
     bx lr
-.size turn_on_col_led, .-turn_on_col_led 
-
-.type turn_on_col_led_advanced, %function
-@ capable of turing on specified column with a particular part of image
-@ --parameters--
-@ r0: index of column to display
-@ r1: address of image to display
-@ r2: the part of image you want to display (0, 1, .., 4)
-turn_on_col_led_advanced:
-  push {lr}
-  push {r4 - r5} 
-  push {r0 - r2}
-  push {r0 - r2}
-  bl init_leds
-  pop {r0 - r2}
-  ldr r1, =OFS_GPIO_OUT
-  ldr r2, =0
-  push {r0 - r2}
-  bl write_column_pin
-  pop {r0 - r2}
-
-  pop {r0 - r2}
-  ldr r4, =4
-  mul r2, r4
-  add r1, r2 
-  ldr r1, [r1]
-  mov r2, r1
-
-  ldr r4, =0 @ loop counter
-  for_this:
-    cmp r4, #5
-    beq end_this
-    ldr r5, =31
-    sub r5, r4 
-    push {r2}
-    lsl r2, r5
-    lsr r2, #31
-    @ ldr r1, =OFS_GPIO_DIR
-    mov r0, 0
-    add r0, r4
-    ldr r1, =OFS_GPIO_OUT
-    bl write_row_pin
-    pop {r2}
-    add r4, 1
-    b for_this
-
-  end_this: 
-    pop {r4 - r5}
-    pop {lr}
-    bx lr
-.size turn_on_col_led_advanced, .-turn_on_col_led_advanced
+.size turn_on_col_led, .-turn_on_col_led   
 
 .type show_image_with_brightness, %function
 @ shows the image using the given address with the delay and brightness
@@ -192,6 +181,36 @@ show_image_with_brightness:
     pop {lr}
     bx lr
 .size show_image_with_brightness, .-show_image_with_brightness 
+
+.type slide_image_show, %function 
+@ displays images in a way that one image is slowly moving out while the another one entering 
+@ --parameters--
+@ r0: number of frames (total number of images * 5 - 4)
+@ r1: memory address which stores references to the images that needs to be displayed
+slide_image_show:
+  push {lr}
+  ldr r4, =0
+  ldr r5, =4
+  slide_image_show_loop:
+    cmp r4, r0
+    beq stop_slide_image_show
+    push {r4}
+    mul r4, r5
+    push {r0 - r3}
+    add r1, r4
+    ldr r2, =brightness_default
+    ldr r0, =200
+    bl show_image_with_brightness
+
+    pop {r0 - r3}
+    pop {r4}
+    add r4, 1
+    b slide_image_show_loop
+    
+  stop_slide_image_show:
+    pop {lr}
+    bx lr  
+.size slide_image_show, .-slide_image_show
 
 
 .type turn_col_with_brightness, %function 
@@ -243,9 +262,17 @@ init_prop_display_image:
   ldr r0, =current_brightness
   ldr r1, =brightness_default
   str r1, [r0]
+
+  ldr r0, =boolean_show_higher_lower
+  ldr r1, =0
+  str r1, [r0]
   pop {lr}
   bx lr
 .size init_prop_display_image, .-init_prop_display_image 
+
+
+
+
 
 .type loop_switch_images, %function 
 @ loops around two images
@@ -264,8 +291,6 @@ loop_switch_images:
   push {r0 - r3} 
 
   push {r0 - r3} 
-  @ mov r2, 0
-  @ add r2, r3
   ldr r2, [r3]
   ldr r0, [r0]
   bl show_image_with_brightness
@@ -274,8 +299,6 @@ loop_switch_images:
   mov r1, 0
   add r1, r2
 
-  @ mov r2, 0
-  @ add r2, r3
   ldr r2, [r3]
   ldr r0, [r0]
   bl show_image_with_brightness
@@ -315,38 +338,6 @@ sequential_image_show:
     pop {lr}
     bx lr
 .size sequential_image_show, .-sequential_image_show
-
-.type slide_image_show, %function 
-@ displays images in a way that one image is slowly moving out while the another one entering 
-@ --parameters--
-@ r0: number of frames (total number of images * 5 - 4)
-@ r1: memory address which stores references to the images that needs to be displayed
-slide_image_show:
-  push {lr}
-  ldr r4, =0
-  ldr r5, =4
-  slide_image_show_loop:
-    cmp r4, r0
-    beq stop_slide_image_show
-    push {r4}
-    mul r4, r5
-    push {r0 - r3}
-    add r1, r4
-    ldr r2, =brightness_default
-    ldr r0, =200
-    bl show_image_with_brightness
-
-    pop {r0 - r3}
-    pop {r4}
-    add r4, 1
-    b slide_image_show_loop
-    
-  stop_slide_image_show:
-    pop {lr}
-    bx lr  
-.size slide_image_show, .-slide_image_show
-
-
 
 .type enable_buttons, %function 
 @ Makes button a and b listen to events
@@ -434,6 +425,9 @@ GPIOTE_IRQHandler:
   ldr r4, =exit_loop_condition
   ldr r5, =1
   str r5, [r4] @ Exit outside loop if non-zero
+
+
+
   pop {r4, r5}
   bl init_leds
   @ clear event
@@ -484,6 +478,11 @@ GPIOTE_IRQHandler:
     ldr r4, =exit_loop_condition
     ldr r5, =1
     str r5, [r4] @ Exit outside loop if non-zero
+    @ set boolean show higher or lower to 1
+    ldr r4, =boolean_show_higher_lower
+    ldr r5, =1
+    str r5, [r4]
+
     pop {r4, r5}
     bl init_leds
     @ clear event
@@ -524,6 +523,40 @@ GPIOTE_IRQHandler:
       pop {lr}
       bx lr
 .size GPIOTE_IRQHandler, .-GPIOTE_IRQHandler
+
+@ r0: display_time
+@ r1: memory address for the first image (highlight)
+@ r2: memory address for the second image (weak)
+@ r3: memory address for brightness
+fade_images:
+  push {lr}
+  loop_fade_images:
+    cmp r0, 0
+    beq end_loop_fade_images
+    push {r0}
+
+    push {r1, r2, r3}
+    ldr r0, =10
+    mov r2, r3
+    bl show_image_with_brightness
+    pop {r1, r2, r3}
+
+    push {r1, r2, r3}
+    ldr r0, =1
+    mov r1, r2
+    mov r2, r3
+    bl show_image_with_brightness
+    pop {r1, r2, r3}
+
+    pop {r0}
+    sub r0, 1
+    b loop_fade_images
+
+  end_loop_fade_images:
+    pop {lr}
+    bx lr
+
+
 
 .data
 full_heart:
@@ -615,6 +648,16 @@ sequential_images:
   .word partial_heart
   .word full_heart
 
+brightness_end_stage_high:
+  .word 300
+  .word 1
+
+brightness_end_stage_low:
+  .word 1
+  .word 300
+
+boolean_show_higher_lower:
+  .word 0  
 
 heart_beat_fast:
   .word 0b00000 
@@ -664,9 +707,14 @@ heart_beat_slow:
   .word 0b00100 @ Column 3
   .word 0b01000 @ Column 4
   .word 0b00100 @ Column 5  
+  .word 0b00100 @ Column 1
+  .word 0b00100 @ Column 2
+  .word 0b00100 @ Column 3
+  .word 0b00100 @ Column 4
+  .word 0b00100 @ Column 5
+  .word 0b00100 @ Column 1  
   .word 0b00000 
   .word 0b00000 
   .word 0b00000 
   .word 0b00000 
-  .word 0b00000 
-
+  .word 0b00000
