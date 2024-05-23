@@ -16,7 +16,7 @@ main:
 
   @ ldr r0, =200
   @ ldr r1, =full_heart
-  @ ldr r2, =brightness_high
+  @ ldr r2, =current_brightness
   @ bl display_image_with_brightness
 
   @ ldr r0, =3
@@ -29,10 +29,18 @@ main:
   bl init_prop_display_image
   bl enable_buttons
   ldr r0, =display_time
-  ldr r1, =small_heart
-  ldr r2, =full_heart
+  ldr r1, =image_iterator
+  ldr r2, =3
   ldr r3, =current_brightness
-  bl loop_switch_images
+  bl iterate_images_with_brightness
+
+  @ bl init_prop_display_image
+  @ bl enable_buttons
+  @ ldr r0, =display_time
+  @ ldr r1, =small_heart
+  @ ldr r2, =full_heart
+  @ ldr r3, =current_brightness
+  @ bl loop_switch_images
 
   ldr r0, =500
   ldr r1, =full_heart
@@ -156,7 +164,7 @@ display_image_section_on_col_with_brightness:
 @ --parameters--
 @ r0: delay (display time)
 @ r1: address of image to display
-@ r2: address of brightness value (delay)
+@ r2: address of brightness value reference (delay)
 display_image_with_brightness:
   push {r4, lr}
   loop_display_image_with_brightness:
@@ -168,6 +176,7 @@ display_image_with_brightness:
       beq end_loop_set_column
       push {r0 - r3}
       mov r0, r4
+      ldr r2, [r2]
       mov r3, r2
       mov r2, r4
       bl display_image_section_on_col_with_brightness
@@ -182,6 +191,47 @@ display_image_with_brightness:
     pop {r4, lr}
     bx lr
 .size display_image_with_brightness, .-display_image_with_brightness
+
+.type iterate_images_with_brightness, %function 
+@ loops around the given images
+@ --parameters--
+@ r0: address of delay (display time for each image)
+@ r1: address storing series of images to be iterated over
+@ (note that the address stores references to images, not the actual images)
+@ r2: number of images in that address
+@ r3: address of brightness value (delay)
+iterate_images_with_brightness:
+  push {r4 - r6, lr}
+  ldr r4, =exit_loop_condition
+  ldr r4, [r4]
+  cmp r4, 0
+  bne end_iteration
+
+  ldr r5, =0 @ loop counter for number of images currently displayed
+  iterator:
+    cmp r5, r2 
+    
+    beq iterate_images_with_brightness_again
+    push {r0 - r3, r5}
+    ldr r6, =4
+    mul r5, r6
+    add r1, r5
+    
+    ldr r1, [r1]
+    mov r2, r3
+    ldr r0, [r0]
+    bl display_image_with_brightness
+    pop {r0 -r3, r5}
+    add r5, 1
+    b iterator    
+
+  iterate_images_with_brightness_again:
+    pop {r4 - r6, lr}
+    b iterate_images_with_brightness
+  end_iteration:
+    pop {r4 - r6, lr}
+    bx lr
+.size iterate_images_with_brightness, .-iterate_images_with_brightness
 
 .type slide_image_show, %function 
 @ displays images in a way that one image is slowly moving out while the another one entering 
@@ -199,7 +249,7 @@ slide_image_show:
     mul r4, r5
     push {r0 - r3}
     add r1, r4
-    ldr r2, =brightness_default
+    ldr r2, =current_brightness
     ldr r0, =200
     bl display_image_with_brightness
 
@@ -236,49 +286,6 @@ init_prop_display_image:
   pop {lr}
   bx lr
 .size init_prop_display_image, .-init_prop_display_image 
-
-
-
-
-
-.type loop_switch_images, %function 
-@ loops around two images
-@ --parameters--
-@ r0: address of delay (display time for each image)
-@ r1: memory address for the first image
-@ r2: memory address for the second image
-@ r3: address of the address storing brightness (brightness is represented in a way of delay)
-loop_switch_images:
-  push {lr}
-  push {r4}
-  ldr r4, =exit_loop_condition
-  ldr r4, [r4]
-  cmp r4, 0
-  bne end_loop_switch_images
-  push {r0 - r3} 
-
-  push {r0 - r3} 
-  ldr r2, [r3]
-  ldr r0, [r0]
-  bl display_image_with_brightness
-  pop {r0 - r3}
-
-  mov r1, 0
-  add r1, r2
-
-  ldr r2, [r3]
-  ldr r0, [r0]
-  bl display_image_with_brightness
-  pop {r0 - r3}
-  pop {r4}
-  pop {lr}
-  b loop_switch_images
-
-  end_loop_switch_images:
-    pop {r4}
-    pop {lr}
-    bx lr
-.size loop_switch_images, .-loop_switch_images
 
 .type sequential_image_show, %function 
 @ sequentially shows images (number of images to be shown stored in r2) from address in r1
@@ -686,6 +693,10 @@ heart_beat_slow:
   .word 0b00000 
   .word 0b00000
 
+image_iterator:
+  .word small_heart
+  .word partial_heart
+  .word full_heart
 
 hight:
   .word 0xffffff
