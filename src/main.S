@@ -14,11 +14,17 @@
 .type main, %function
 main:
 
-  ldr r0, =500
-  ldr r1, =start
-  ldr r2, =start
-  ldr r3, =brightness_end_stage_high
-  bl fade_images
+  @ ldr r0, =200
+  @ ldr r1, =full_heart
+  @ ldr r2, =brightness_high
+  @ bl display_image_with_brightness
+
+  @ ldr r0, =3
+  @ ldr r1, =full_heart
+  @ ldr r2, =3
+  @ ldr r3, =hight
+  @ bl display_image_section_on_col_with_brightness
+  @ bl fade_images
 
   bl init_prop_display_image
   bl enable_buttons
@@ -82,105 +88,100 @@ main:
   b main
 .size main, .-main
 
-
-.type turn_on_col_led, %function
-@ changes the direction to ouput and sets 
-@ the column specified as parameter
+.type display_image_section_on_col, %function
+@ capable of turing on specified column with a particular part of image
 @ --parameters--
 @ r0: index of column to display
-@ r1: address of image to display
-turn_on_col_led:
-  push {lr}
-  push {r4 - r5} 
-  push {r1}
-  push {r0, r1}
+@ r1: address containing the entire image (consists of 5 words)
+@ r2: the part of image that needs to be shown (0, 1, .., 4) where 0 refers to the first word in image,
+@ 1 refers to the second word in image, ...
+display_image_section_on_col:
+  push {r4, lr}
+
+  push {r0 - r2}
   bl init_leds
-  pop {r0, r1}
-  ldr r1, =OFS_GPIO_OUT
-  ldr r2, =0
-  push {r0, r1}
-  bl write_column_pin
-  pop {r0, r1}
+  pop {r0 - r2}
 
-  lsl r0, 2
-  pop {r1}
-  mov r2, 0
-  add r2, r1
-  @ ldr r2, r1
-  add r2, r2, r0
-  ldr r2, [r2]
-  ldr r4, =0 @ loop counter
-  for:
-    cmp r4, #5
-    beq end
-    ldr r5, =31
-    sub r5, r4 
-    push {r2}
-    lsl r2, r5
-    lsr r2, #31
-    @ ldr r1, =OFS_GPIO_DIR
-    mov r0, 0
-    add r0, r4
-    ldr r1, =OFS_GPIO_OUT
-    bl write_row_pin
-    pop {r2}
-    add r4, 1
-    b for
+  push {r0 - r2}
+  mov r3, r0
+  ldr r0, =0b1
+  lsl r0, r3
+  bl write_column_pins
+  pop {r0 - r2}
 
-  end: 
-    pop {r4 - r5}
-    pop {lr}
-    bx lr
-.size turn_on_col_led, .-turn_on_col_led   
+  ldr r4, =4
+  mul r2, r4
+  add r1, r2 
+  ldr r1, [r1]
+  mov r0, r1
+  bl write_row_pins
 
-.type show_image_with_brightness, %function
-@ shows the image using the given address with the delay and brightness
+  pop {r4, lr}
+  bx lr
+.size display_image_section_on_col, .-display_image_section_on_col
+
+.type display_image_section_on_col_with_brightness, %function
+@ capable of turing on specified column with a particular part of image
+@ --parameters--
+@ r0: index of column to display
+@ r1: address containing the entire image (consists of 5 words)
+@ r2: the part of image that needs to be shown (0, 1, .., 4) where 0 refers to the first word in image,
+@ 1 refers to the second word in image, ...
+@ r3: address of brightness value (delay)
+display_image_section_on_col_with_brightness:
+  push {lr}
+
+  push {r3}
+  bl display_image_section_on_col
+  pop {r3}
+
+  push {r3}
+  ldr r3, [r3]
+  mov r0, r3
+  bl delay
+  bl init_leds
+  pop {r3}
+
+  add r3, 4
+  ldr r3, [r3]
+  mov r0, r3
+  bl delay
+  
+  pop {lr}
+  bx lr
+.size display_image_section_on_col_with_brightness, .-display_image_section_on_col_with_brightness
+
+.type display_image_with_brightness, %function
+@ displays the image from the given address with the specified delay and brightness
 @ --parameters--
 @ r0: delay (display time)
 @ r1: address of image to display
-@ r2: address storing brightness (brightness is represented in a way of delay)
-show_image_with_brightness:
-  push {lr}
-  show_image_loop:
+@ r2: address of brightness value (delay)
+display_image_with_brightness:
+  push {r4, lr}
+  loop_display_image_with_brightness:
     cmp r0, 0
-    push {r0}
-    beq stop_show_image
-
-    ldr r0, =0
-    push {r1, r2}
-    bl turn_col_with_brightness
-    pop {r1, r2}
-
-    ldr r0, =1
-    push {r1, r2}
-    bl turn_col_with_brightness
-    pop {r1, r2}
-
-    ldr r0, =2
-    push {r1, r2}
-    bl turn_col_with_brightness
-    pop {r1, r2}
-
-    ldr r0, =3
-    push {r1, r2}
-    bl turn_col_with_brightness
-    pop {r1, r2}
-
-    ldr r0, =4
-    push {r1, r2}
-    bl turn_col_with_brightness
-    pop {r1, r2}
-
-    pop {r0}
-    sub r0, 1
-    bl show_image_loop
-
-  stop_show_image:
+    beq end_loop_display_image_with_brightness
+    ldr r4, =0
+    loop_set_column:
+      cmp r4, 5
+      beq end_loop_set_column
+      push {r0 - r3}
+      mov r0, r4
+      mov r3, r2
+      mov r2, r4
+      bl display_image_section_on_col_with_brightness
+      pop {r0 - r3}
+      add r4, 1
+      b loop_set_column
+    end_loop_set_column:
+      sub r0, 1
+      b loop_display_image_with_brightness
+  end_loop_display_image_with_brightness:
     bl init_leds
-    pop {r0}
-    pop {lr}
+    pop {r4, lr}
     bx lr
-.size show_image_with_brightness, .-show_image_with_brightness 
+.size display_image_with_brightness, .-display_image_with_brightness
 
 .type slide_image_show, %function 
 @ displays images in a way that one image is slowly moving out while the another one entering 
@@ -200,7 +201,7 @@ slide_image_show:
     add r1, r4
     ldr r2, =brightness_default
     ldr r0, =200
-    bl show_image_with_brightness
+    bl display_image_with_brightness
 
     pop {r0 - r3}
     pop {r4}
@@ -211,40 +212,6 @@ slide_image_show:
     pop {lr}
     bx lr  
 .size slide_image_show, .-slide_image_show
-
-
-.type turn_col_with_brightness, %function 
-@ sets the column specified as parameter with a brightness
-@ read from memory
-@ --parameters--
-@ r0: index of column to display
-@ r1: address of image to display
-@ r2: address storing brightness (brightness is represented in a way of delay)
-turn_col_with_brightness:
-  push {lr}
-  push {r4, r5}
-  cmp r0, 2
-
-  push {r2}
-  ldr r2, [r2]
-  push {r2}
-  bl turn_on_col_led
-  pop {r2}
-  mov r0, 0
-  add r0, r2
-  bl delay
-  bl init_leds
-  pop {r2}
-  mov r0, 0
-  add r2, 4
-  ldr r2, [r2]
-  add r0, r2
-  bl delay
-  
-  pop {r4, r5}
-  pop {lr}
-  bx lr
-.size turn_col_with_brightness, .-turn_col_with_brightness  
 
 .type init_prop_display_image, %function 
 @ Initilizes the values stored in memory to default values
@@ -293,7 +260,7 @@ loop_switch_images:
   push {r0 - r3} 
   ldr r2, [r3]
   ldr r0, [r0]
-  bl show_image_with_brightness
+  bl display_image_with_brightness
   pop {r0 - r3}
 
   mov r1, 0
@@ -301,7 +268,7 @@ loop_switch_images:
 
   ldr r2, [r3]
   ldr r0, [r0]
-  bl show_image_with_brightness
+  bl display_image_with_brightness
   pop {r0 - r3}
   pop {r4}
   pop {lr}
@@ -330,7 +297,7 @@ sequential_image_show:
   add r1, r2
   ldr r1, [r1]
   ldr r2, =brightness_default
-  bl show_image_with_brightness
+  bl display_image_with_brightness
   pop {r0 - r2}
   sub r2, 1
   bl sequential_image_show
@@ -538,14 +505,14 @@ fade_images:
     push {r1, r2, r3}
     ldr r0, =10
     mov r2, r3
-    bl show_image_with_brightness
+    bl display_image_with_brightness
     pop {r1, r2, r3}
 
     push {r1, r2, r3}
     ldr r0, =1
     mov r1, r2
     mov r2, r3
-    bl show_image_with_brightness
+    bl display_image_with_brightness
     pop {r1, r2, r3}
 
     pop {r0}
@@ -718,3 +685,7 @@ heart_beat_slow:
   .word 0b00000 
   .word 0b00000 
   .word 0b00000
+
+
+hight:
+  .word 0xffffff
