@@ -72,6 +72,7 @@ main:
   ldr r3, =brightness_end_stage_high
   bl fade_images
 
+  bl disable_buttons
   ldr r0, =boolean_show_higher_lower
   ldr r0, [r0]
   ldr r1, =1
