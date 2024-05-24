@@ -14,18 +14,6 @@
 .type main, %function
 main:
 
-  @ ldr r0, =200
-  @ ldr r1, =full_heart
-  @ ldr r2, =current_brightness
-  @ bl display_image_with_brightness
-
-  @ ldr r0, =3
-  @ ldr r1, =full_heart
-  @ ldr r2, =3
-  @ ldr r3, =hight
-  @ bl display_image_section_on_col_with_brightness
-  @ bl fade_images
-
   bl init_prop_display_image
   bl enable_buttons
   ldr r0, =display_time
@@ -34,13 +22,7 @@ main:
   ldr r3, =current_brightness
   bl iterate_images_with_brightness
 
-  @ bl init_prop_display_image
-  @ bl enable_buttons
-  @ ldr r0, =display_time
-  @ ldr r1, =small_heart
-  @ ldr r2, =full_heart
-  @ ldr r3, =current_brightness
-  @ bl loop_switch_images
+  bl disable_buttons
 
   ldr r0, =500
   ldr r1, =full_heart
@@ -72,7 +54,7 @@ main:
   ldr r3, =brightness_end_stage_high
   bl fade_images
 
-  bl disable_buttons
+  
   ldr r0, =boolean_show_higher_lower
   ldr r0, [r0]
   ldr r1, =1
@@ -87,14 +69,6 @@ main:
     ldr r1, =heart_beat_fast
     bl slide_image_show
     b main
-
-
-
-  
-  @ ldr r0, =100
-  @ bl delay
-  
-  b main
 .size main, .-main
 
 .type display_image_section_on_col, %function
